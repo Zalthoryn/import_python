@@ -563,6 +563,7 @@ class ProductForm(forms.ModelForm):
 {% endblock %}
 ''',
     "core/templates/core/product_list.html": '''
+
 {% extends 'core/base.html' %}
 {% load static %}
 
@@ -572,16 +573,16 @@ class ProductForm(forms.ModelForm):
 {% block content %}
 {% if user.role.name == "admin" or user.role.name == "manager" %}
 <div>
-    <form method="get" style="display: flex;">
+    <form method="get" id="filter-form" style="display: flex;">
         <div>
             <label>Поиск:</label><br>
             <input type="text" name="search" value="{{ current_search }}" placeholder="Найти..."
-                oninput="clearTimeout(this.delay); this.delay = setTimeout(() => this.form.submit(), 500);">
+                oninput="clearTimeout(this.delay); this.delay = setTimeout(() => updateFilters(), 500);">
         </div>
 
         <div>
             <label>Поставщик:</label><br>
-            <select name="supplier" onchange="this.form.submit()">
+            <select name="supplier" onchange="updateFilters()">
                 <option value="all">Все поставщики</option>
                 {% for s in suppliers %}
                 <option value="{{ s.id }}" {% if current_supplier == s.id|stringformat:"i" %}selected{% endif %}>{{ s.name }}</option>
@@ -591,7 +592,7 @@ class ProductForm(forms.ModelForm):
 
         <div>
             <label>Сортировка (кол-во):</label><br>
-            <select name="sort" onchange="this.form.submit()">
+            <select name="sort" onchange="updateFilters()">
                 <option value="">Без сортировки</option>
                 <option value="asc" {% if current_sort == "asc" %}selected{% endif %}>По возрастанию</option>
                 <option value="desc" {% if current_sort == "desc" %}selected{% endif %}>По убыванию</option>
@@ -607,7 +608,7 @@ class ProductForm(forms.ModelForm):
 
 </div>
 {% endif %}
-<div>
+<div id="products-wrapper">
     {% for product in products %}
     <div class="product-card 
         {% if product.discount > 15 %}sale{% endif %}
@@ -645,6 +646,31 @@ class ProductForm(forms.ModelForm):
     <p>Товары не найдены.</p>
     {% endfor %}
 </div>
+
+<script>
+function updateFilters() {
+    const form = document.getElementById('filter-form');
+    
+    const formData = new FormData(form);
+    const searchParams = new URLSearchParams(formData).toString();
+    
+    const url = `${window.location.pathname}?${searchParams}`;
+    
+    fetch(url)
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+        
+            const newContent = doc.getElementById('products-wrapper').innerHTML;
+
+            document.getElementById('products-wrapper').innerHTML = newContent;
+            
+            window.history.pushState({}, '', url);
+        })
+        .catch(err => console.error("Ошибка фильтрации:", err));
+}
+</script>
 {% endblock %}
 ''',
     "core/templates/core/product_form.html": '''
@@ -775,17 +801,6 @@ def main():
     for rel_path, content in FILES.items():
         target = base / rel_path
         write_file(target, content)
-
-    print("\n✅ All files have been written.")
-    print("\nNext steps:")
-    print("1. Create PostgreSQL database 'shoe_store_2' (if not exists)")
-    print("2. Run: python manage.py makemigrations")
-    print("3. Run: python manage.py migrate")
-    print("4. Run: python manage.py import_data   (requires CSV files in part_1/add_2/import/)")
-    print("5. Run: python manage.py runserver")
-    print("6. Create superuser: python manage.py createsuperuser (optional)")
-    print("\nNote: You need to manually place static images (Icon.png, Icon.ico, picture.png) into static/images/")
-    print("      and product photos into media/products/ (1.jpg ... 10.jpg)")
 
 
 if __name__ == "__main__":
